@@ -5,7 +5,9 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -22,27 +24,28 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
     private static final String DeviceName = "eSense-0056";
     private boolean isMeasuring;
     private boolean isFirst;
-    TextView statusText;
-    Button startButton;
+    private int id;
+    private long startTime;
+    private long progressTime;
     private ArrayList<Long> timeData;
     private ArrayList<ArrayList<Short>> data;
-    private long time;
-    private long timestamp;
+    private TextView statusText;
+    private EditText idText;
+    private Button startButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        idText = findViewById(R.id.id_Text);
         isMeasuring = false;
         isFirst = false;
-        timestamp = 0l;
-        time = 0l;
         statusText = findViewById(R.id.Status);
         startButton = findViewById(R.id.StartButton);
         statusText.setText("Finding eSense...");
 
         ESenseManager manager = new ESenseManager(DeviceName, this,this);
-        manager.connect(2000);
+        manager.connect(1000);
     }
 
     @Override
@@ -58,7 +61,7 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
     @Override
     public void onConnected(ESenseManager eSenseManager) {
         Log.d(TAG, "onConnected");
-        eSenseManager.registerSensorListener(this,100);
+        eSenseManager.registerSensorListener(this,52);
     }
 
     @Override
@@ -70,7 +73,7 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
     public void onSensorChanged(ESenseEvent eSenseEvent) {
         //Log.d(TAG, "onSensorChanged");
         short[] val = eSenseEvent.getAccel();
-        Log.d(TAG, "onSensorChanged: " + val[0] + ", " + val[1] + ", " + time);
+        Log.d(TAG, "onSensorChanged: " + val[0] + ", " + val[1] + ", " + val[2]);
 
         for (int i = 0; i < 3; i++)
         {
@@ -78,38 +81,38 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
         }
         if (isFirst)
         {
-            time = eSenseEvent.getTimestamp();
-            //eSenseEvent.setTimestamp(0l);
             isFirst = false;
         }
-        timeData.add(eSenseEvent.getTimestamp() - time);
+        progressTime = System.nanoTime() - startTime;
+        timeData.add(progressTime);
     }
 
     public void onClickButton(View v) {
         Log.d(TAG, "onClick");
-        switch (v.getId()) {
-            case R.id.StartButton:
-                if (isMeasuring){
-                    isMeasuring = false;
-                    startButton.setText(R.string.start_button_text);
-                    statusText.setText("Tap to Start");
-                    OutputFile();
+        if (isMeasuring){
+            isMeasuring = false;
+            startButton.setText(R.string.start_button_text);
+            statusText.setText("Tap to Start");
+            OutputFile();
+        }
+        else {
+            if (idText.getText().toString().equals("")) {
+                Toast.makeText(this, "Input you ID", Toast.LENGTH_SHORT).show();
+            }
+            else {
+                isMeasuring = true;
+                isFirst = true;
+                startButton.setText(R.string.stop_button_text);
+                statusText.setText("Measuring...");
+                data = new ArrayList<>();
+                timeData = new ArrayList<>();
+                for (int i = 0; i < 3; i++) {
+                    ArrayList<Short> arr = new ArrayList<>();
+                    data.add(arr);
                 }
-                else {
-                    isMeasuring = true;
-                    isFirst = true;
-                    startButton.setText(R.string.stop_button_text);
-                    statusText.setText("Measuring...");
-                    data = new ArrayList<>();
-                    timeData = new ArrayList<>();
-                    for (int i = 0; i < 3; i++)
-                    {
-                        ArrayList<Short> arr = new ArrayList<>();
-                        data.add(arr);
-                    }
-
-                }
-                break;
+                id = Integer.parseInt(idText.getText().toString());
+                startTime = System.nanoTime();
+            }
         }
     }
 
@@ -119,7 +122,7 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
         String filename = sdf.format(date) + ".csv";
         Log.d(TAG, filename);
         try {
-            FileOutputStream fout = openFileOutput(filename, MODE_PRIVATE);
+            FileOutputStream fout = openFileOutput("eSense_" + String.format("%03d", id) + "_" + filename, MODE_PRIVATE);
             String comma = ",";
             String newline = "\n";
             for (int i = 0; i < data.get(0).size(); i++) {
@@ -128,7 +131,7 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
                     fout.write(String.valueOf(data.get(j).get(i)).getBytes());
                     fout.write(comma.getBytes());
                 }
-                fout.write(String.valueOf(timeData.get(i)).getBytes());
+                fout.write(String.format("%.6f", Float.parseFloat(timeData.get(i).toString())/1000000000f).getBytes());
                 fout.write(newline.getBytes());
             }
             fout.close();
