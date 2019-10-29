@@ -23,11 +23,11 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
     private static final String TAG = "MainActivity";
     private static final String DeviceName = "eSense-0056";
     private boolean isMeasuring;
-    private boolean isFirst;
     private int id;
     private long startTime;
     private long progressTime;
     private ArrayList<Long> timeData;
+    private ArrayList<Long> currentTimeData;
     private ArrayList<ArrayList<Short>> data;
     private TextView statusText;
     private EditText idText;
@@ -39,7 +39,6 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
         setContentView(R.layout.activity_main);
         idText = findViewById(R.id.id_Text);
         isMeasuring = false;
-        isFirst = false;
         statusText = findViewById(R.id.Status);
         startButton = findViewById(R.id.StartButton);
         statusText.setText("Finding eSense...");
@@ -74,17 +73,14 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
         //Log.d(TAG, "onSensorChanged");
         short[] val = eSenseEvent.getAccel();
         Log.d(TAG, "onSensorChanged: " + val[0] + ", " + val[1] + ", " + val[2]);
-
-        for (int i = 0; i < 3; i++)
-        {
-            data.get(i).add(val[i]);
+        if (isMeasuring) {
+            for (int i = 0; i < 3; i++) {
+                data.get(i).add(val[i]);
+            }
+            progressTime = System.nanoTime() - startTime;
+            timeData.add(progressTime);
+            currentTimeData.add(System.currentTimeMillis());
         }
-        if (isFirst)
-        {
-            isFirst = false;
-        }
-        progressTime = System.nanoTime() - startTime;
-        timeData.add(progressTime);
     }
 
     public void onClickButton(View v) {
@@ -101,11 +97,11 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
             }
             else {
                 isMeasuring = true;
-                isFirst = true;
                 startButton.setText(R.string.stop_button_text);
                 statusText.setText("Measuring...");
                 data = new ArrayList<>();
                 timeData = new ArrayList<>();
+                currentTimeData = new ArrayList<>();
                 for (int i = 0; i < 3; i++) {
                     ArrayList<Short> arr = new ArrayList<>();
                     data.add(arr);
@@ -132,6 +128,8 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
                     fout.write(comma.getBytes());
                 }
                 fout.write(String.format("%.6f", Float.parseFloat(timeData.get(i).toString())/1000000000f).getBytes());
+                fout.write(comma.getBytes());
+                fout.write(String.valueOf(currentTimeData.get(i)).getBytes());
                 fout.write(newline.getBytes());
             }
             fout.close();
