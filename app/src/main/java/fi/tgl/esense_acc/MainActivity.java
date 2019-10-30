@@ -2,6 +2,7 @@ package fi.tgl.esense_acc;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -32,6 +33,7 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
     private TextView statusText;
     private EditText idText;
     private Button startButton;
+    Handler handler = new Handler();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,17 +52,50 @@ public class MainActivity extends Activity implements ESenseConnectionListener, 
     @Override
     public void onDeviceFound(ESenseManager eSenseManager) {
         Log.d(TAG, "onDeviceFound");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        statusText.setText("Device found.\n\nConnecting...");
+                    }
+                });
+            }
+        }).start();
     }
 
     @Override
     public void onDeviceNotFound(ESenseManager eSenseManager) {
         Log.d(TAG, "onDeviceNotFound");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        statusText.setText("Device not found.\n\nCheck bluetooth status and restart app.");
+                    }
+                });
+            }
+        }).start();
     }
 
     @Override
     public void onConnected(ESenseManager eSenseManager) {
         Log.d(TAG, "onConnected");
         eSenseManager.registerSensorListener(this,52);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        statusText.setText("eSense connected.");
+                    }
+                });
+            }
+        }).start();
     }
 
     @Override
